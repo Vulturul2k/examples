@@ -3,7 +3,7 @@ import json
 import re
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QPushButton, QVBoxLayout,QHBoxLayout, QTableWidget, QTableWidgetItem,
-    QLabel, QTextEdit, QMessageBox
+    QLabel, QTextEdit, QMessageBox, QLineEdit
 )
 from PyQt5.QtGui import QFont
 
@@ -13,7 +13,8 @@ class CanJsonProcessor(QWidget):
         super().__init__()
         self.initUI()
         self.input_packets = [] 
-        self.simulator_packets = []  
+        # self.simulator_packets = []  
+        self.all_packets = []
 
     def initUI(self):
         self.setWindowTitle('CAN JSON Processor')
@@ -34,12 +35,20 @@ class CanJsonProcessor(QWidget):
         self.test_button.setFont(QFont('Arial', 12))
         self.test_button.clicked.connect(self.testjson)
         
+        self.show_table_button = QPushButton('Afișează tabelul', self)
+        self.show_table_button.setFont(QFont('Arial', 12))
+        self.show_table_button.clicked.connect(self.toggle_table)
+
+        self.search_box = QLineEdit(self)
+        self.search_box.setPlaceholderText("Caută în tabel...")
+        self.search_box.textChanged.connect(self.filter_table)
+
         self.table = QTableWidget()
         self.table.setColumnCount(10) 
         self.table.setHorizontalHeaderLabels([
             "ID", "Date", "Sursa", "Destinatie", "Nume", "Nivel", "Tip", "Perioada", "Data Size", "Carla Var"
         ])
-
+        self.table.setVisible(True) 
 
         self.table.setColumnWidth(0, 60)   # ID
         self.table.setColumnWidth(9, 60)  # Date
@@ -53,22 +62,42 @@ class CanJsonProcessor(QWidget):
         self.table.setColumnWidth(8, 100)  # Carla Var
 
         	
-        self.sim_table = QTableWidget()
-        self.sim_table.setColumnCount(10)  
-        self.sim_table.setHorizontalHeaderLabels([
+        self.sim_table_command = QTableWidget()
+        self.sim_table_command.setColumnCount(10)  
+        self.sim_table_command.setHorizontalHeaderLabels([
             "ID", "Date", "Sursa", "Destinatie", "Nume", "Nivel", "Tip", "Perioada", "Data Size", "Carla Var"
         ])
+        self.sim_table_command.setVisible(True)
+        self.sim_table_command.setColumnWidth(0, 60)   # ID
+        self.sim_table_command.setColumnWidth(9, 60)  # Date
+        self.sim_table_command.setColumnWidth(1, 120)  # Sursa
+        self.sim_table_command.setColumnWidth(2, 120)  # Destinatie
+        self.sim_table_command.setColumnWidth(3, 160)  # Nume
+        self.sim_table_command.setColumnWidth(4, 80)   # Nivel
+        self.sim_table_command.setColumnWidth(5, 80)   # Tip
+        self.sim_table_command.setColumnWidth(6, 80)   # Perioada
+        self.sim_table_command.setColumnWidth(7, 80)   # Data Size
+        self.sim_table_command.setColumnWidth(8, 100)  # Carla Var
 
-        self.sim_table.setColumnWidth(0, 60)   # ID
-        self.sim_table.setColumnWidth(9, 60)  # Date
-        self.sim_table.setColumnWidth(1, 120)  # Sursa
-        self.sim_table.setColumnWidth(2, 120)  # Destinatie
-        self.sim_table.setColumnWidth(3, 160)  # Nume
-        self.sim_table.setColumnWidth(4, 80)   # Nivel
-        self.sim_table.setColumnWidth(5, 80)   # Tip
-        self.sim_table.setColumnWidth(6, 80)   # Perioada
-        self.sim_table.setColumnWidth(7, 80)   # Data Size
-        self.sim_table.setColumnWidth(8, 100)  # Carla Var
+
+        self.sim_table_report = QTableWidget()
+        self.sim_table_report.setColumnCount(10)  
+        self.sim_table_report.setHorizontalHeaderLabels([
+            "ID", "Date", "Sursa", "Destinatie", "Nume", "Nivel", "Tip", "Perioada", "Data Size", "Carla Var"
+        ])
+        self.sim_table_report.setVisible(False)
+        self.sim_table_report.setColumnWidth(0, 60)   # ID
+        self.sim_table_report.setColumnWidth(9, 60)  # Date
+        self.sim_table_report.setColumnWidth(1, 120)  # Sursa
+        self.sim_table_report.setColumnWidth(2, 120)  # Destinatie
+        self.sim_table_report.setColumnWidth(3, 160)  # Nume
+        self.sim_table_report.setColumnWidth(4, 80)   # Nivel
+        self.sim_table_report.setColumnWidth(5, 80)   # Tip
+        self.sim_table_report.setColumnWidth(6, 80)   # Perioada
+        self.sim_table_report.setColumnWidth(7, 80)   # Data Size
+        self.sim_table_report.setColumnWidth(8, 100)  # Carla Var
+
+
 
         # Layout principal
         layout = QVBoxLayout()
@@ -76,6 +105,7 @@ class CanJsonProcessor(QWidget):
         layout.addWidget(self.json_input)
         layout.addWidget(self.process_button)
         layout.addWidget(self.test_button)
+        layout.addWidget(self.show_table_button)
 
         # layout.addWidget(self.table)
 
@@ -83,40 +113,123 @@ class CanJsonProcessor(QWidget):
         table_layout = QHBoxLayout()
         table_layout.addWidget(QLabel("📥 Pachete CAN Primite (INPUT)"))
         table_layout.addWidget(QLabel("🚗 Pachete CAN Procesate (SIMULATOR)"))
+        # table_view_layout = QHBoxLayout()
+        # table_view_layout.addWidget(self.table)
+        # table_view_layout.addWidget(self.sim_table_command)
         
-        table_view_layout = QHBoxLayout()
-        table_view_layout.addWidget(self.table)
-        table_view_layout.addWidget(self.sim_table)
-        # layout.addWidget(self.table)
-        layout.addLayout(table_layout)
-        layout.addLayout(table_view_layout)
+        # table_view_layout.addWidget(self.search_box)
+
+        # # layout.addWidget(self.table)
+        # layout.addLayout(table_layout)
+        # layout.addLayout(table_view_layout)
         
 
+
+
+        sim_table_command_layout = QVBoxLayout()
+        sim_table_command_layout.addWidget(self.sim_table_report)
+        sim_table_command_layout.addWidget(self.sim_table_command)  # Adăugăm tabelul
+        sim_table_command_layout.addWidget(self.search_box)  # Bara de căutare sub tabel
+
+
+
+        # Layout principal pentru vizualizarea tabelelor
+        table_view_layout = QHBoxLayout()
+        table_view_layout.addWidget(self.table)  # Primul tabel (INPUT)
+        table_view_layout.addLayout(sim_table_command_layout)  # Al doilea tabel + search box
+
+        # Adăugăm la layout-ul principal
+        layout.addLayout(table_layout)
+        layout.addLayout(table_view_layout)
 
         self.setLayout(layout)
 
-    def add_packet_to_table(self, packet):
-        # table = self.sim_table
-        row_position = self.sim_table.rowCount()
-        self.sim_table.insertRow(0)
+    def add_packet_to_table_report(self, packet):
+        # self.all_packets.append(packet)  # Stochează pachetele pentru filtrare
 
-        self.sim_table.setItem(0, 0, QTableWidgetItem(str(packet["can_id"])))
-        self.sim_table.setItem(0, 1, QTableWidgetItem(str(packet.get("data", "N/A"))))  
-        self.sim_table.setItem(0, 2, QTableWidgetItem(packet.get("src", "N/A")))
-        self.sim_table.setItem(0, 3, QTableWidgetItem(packet.get("dst", "N/A")))
-        self.sim_table.setItem(0, 4, QTableWidgetItem(packet.get("name", "N/A")))
-        self.sim_table.setItem(0, 5, QTableWidgetItem(packet.get("level", "N/A")))
-        self.sim_table.setItem(0, 6, QTableWidgetItem(packet.get("type", "N/A")))
-        self.sim_table.setItem(0, 7, QTableWidgetItem(str(packet.get("period", "N/A"))))
-        self.sim_table.setItem(0, 8, QTableWidgetItem(str(packet.get("datasize", "N/A"))))
-        self.sim_table.setItem(0, 9, QTableWidgetItem(packet.get("carlaVar", "N/A")))
+        self.sim_table_report.insertRow(0)
+
+        self.sim_table_report.setItem(0, 0, QTableWidgetItem(str(packet["can_id"])))
+        self.sim_table_report.setItem(0, 1, QTableWidgetItem(str(packet.get("data", "N/A"))))  
+        self.sim_table_report.setItem(0, 2, QTableWidgetItem(packet.get("src", "N/A")))
+        self.sim_table_report.setItem(0, 3, QTableWidgetItem(packet.get("dst", "N/A")))
+        self.sim_table_report.setItem(0, 4, QTableWidgetItem(packet.get("name", "N/A")))
+        self.sim_table_report.setItem(0, 5, QTableWidgetItem(packet.get("level", "N/A")))
+        self.sim_table_report.setItem(0, 6, QTableWidgetItem(packet.get("type", "N/A")))
+        self.sim_table_report.setItem(0, 7, QTableWidgetItem(str(packet.get("period", "N/A"))))
+        self.sim_table_report.setItem(0, 8, QTableWidgetItem(str(packet.get("datasize", "N/A"))))
+        self.sim_table_report.setItem(0, 9, QTableWidgetItem(packet.get("carlaVar", "N/A")))
+
+        # print(f"Pachet CAN afisat in raport: {packet}")
+
+
+
+    def add_packet_to_table(self, packet):
+        # table = self.sim_table_command
+        # row_position = self.sim_table_command.rowCount()
+
+        self.all_packets.append(packet)  # Stochează pachetele pentru filtrare
+        # self.update_table(self.all_packets)
+
+        self.sim_table_command.insertRow(0)
+
+        self.sim_table_command.setItem(0, 0, QTableWidgetItem(str(packet["can_id"])))
+        self.sim_table_command.setItem(0, 1, QTableWidgetItem(str(packet.get("data", "N/A"))))  
+        self.sim_table_command.setItem(0, 2, QTableWidgetItem(packet.get("src", "N/A")))
+        self.sim_table_command.setItem(0, 3, QTableWidgetItem(packet.get("dst", "N/A")))
+        self.sim_table_command.setItem(0, 4, QTableWidgetItem(packet.get("name", "N/A")))
+        self.sim_table_command.setItem(0, 5, QTableWidgetItem(packet.get("level", "N/A")))
+        self.sim_table_command.setItem(0, 6, QTableWidgetItem(packet.get("type", "N/A")))
+        self.sim_table_command.setItem(0, 7, QTableWidgetItem(str(packet.get("period", "N/A"))))
+        self.sim_table_command.setItem(0, 8, QTableWidgetItem(str(packet.get("datasize", "N/A"))))
+        self.sim_table_command.setItem(0, 9, QTableWidgetItem(packet.get("carlaVar", "N/A")))
 
         print(f"Pachet CAN afisat in tabel: {packet}")
 
+    def update_table(self, packets):
+        """Actualizează tabelul cu pachetele furnizate."""
+        self.sim_table_command.setRowCount(0)
+
+        for packet in packets:
+            row_position = self.table.rowCount()
+            self.sim_table_command.insertRow(row_position)
+
+            self.sim_table_command.setItem(row_position, 0, QTableWidgetItem(str(packet["can_id"])))
+            self.sim_table_command.setItem(row_position, 1, QTableWidgetItem(str(packet["data"])))
+            self.sim_table_command.setItem(row_position, 2, QTableWidgetItem(packet["src"]))
+            self.sim_table_command.setItem(row_position, 3, QTableWidgetItem(packet["dst"]))
+            self.sim_table_command.setItem(row_position, 4, QTableWidgetItem(packet["name"]))
+            self.sim_table_command.setItem(row_position, 5, QTableWidgetItem(packet["level"]))
+            self.sim_table_command.setItem(row_position, 6, QTableWidgetItem(packet["type"]))
+            self.sim_table_command.setItem(row_position, 7, QTableWidgetItem(str(packet.get("period", "N/A"))))
+            self.sim_table_command.setItem(row_position, 8, QTableWidgetItem(str(packet.get("datasize", "N/A"))))
+            self.sim_table_command.setItem(row_position, 9, QTableWidgetItem(packet["carlaVar"]))
+
+    def filter_table(self):
+        """Filtrează datele în funcție de textul introdus în bara de căutare."""
+        search_text = self.search_box.text().lower()
+        filtered_packets = [
+            p for p in self.all_packets if 
+            search_text in str(p["can_id"]).lower() or
+            search_text in str(p["data"]).lower() or
+            search_text in str(p["src"]).lower() or
+            search_text in str(p["dst"]).lower() or
+            search_text in str(p["name"]).lower() or
+            search_text in str(p["level"]).lower() or
+            search_text in str(p["type"]).lower() or
+            search_text in str(p["period"]).lower() or
+            search_text in str(p["datasize"]).lower() or
+            search_text in str(p["carlaVar"]).lower()
+        ]
+        self.update_table(filtered_packets)
+
+    def toggle_table(self):
+        self.table.setVisible(not self.table.isVisible()) 
+
     def testjson(self):
-        print('\n')
-        if self.input_packets:
-            print(self.input_packets[-1].get("data", "N/A"))
+        self.sim_table_command.setVisible(not self.sim_table_command.isVisible())
+        self.search_box.setVisible(not self.search_box.isVisible())
+        self.sim_table_report.setVisible(not self.sim_table_report.isVisible())
 
     def process_json(self):
         json_text = self.json_input.toPlainText()

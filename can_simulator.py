@@ -463,7 +463,10 @@ class CanSimulator:
         # Create a standard CAN message (not for carla, for extracting and sending to real ECU's)
         
         if self.gui_processor:
-            self.gui_processor.add_packet_to_table(packet.to_dict())
+            if packet.level == "report":
+                self.gui_processor.add_packet_to_table_report(packet.to_dict())
+            else:
+                self.gui_processor.add_packet_to_table(packet.to_dict())
         
         
         
