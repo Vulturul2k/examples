@@ -541,8 +541,8 @@ class CanSimulator:
             c = self.world.player.get_control()
             p = self.world.player.get_physics_control()
             engine_rpm = p.max_rpm * c.throttle
-            if c.gear > 0:
-                engine_rpm *= c.gear
+            # if c.gear > 0:
+            #     engine_rpm *= c.gear
             return int(round(engine_rpm, 2))
         elif carlaVar == "steer":
             value = round(self.world.player.get_control().steer, 2)
@@ -680,8 +680,6 @@ class CanSimulator:
                 )
                 self.command_packets.append(packet)
             
-
-                #print(f"Command packet added: {packet}")
             else:
                 print(f"CAN ID {can_id} is not a command packet.")
         else:
@@ -848,12 +846,12 @@ class KeyboardControl(object):
                         world.recording_start += 1
                     world.hud.notification("Recording start time is %d" % (world.recording_start))
                 if isinstance(self._control, carla.VehicleControl):
-                    if event.key == K_f:
-                        # Toggle ackermann controller
-                        self._ackermann_enabled = not self._ackermann_enabled
-                        world.hud.show_ackermann_info(self._ackermann_enabled)
-                        world.hud.notification("Ackermann Controller %s" %
-                                               ("Enabled" if self._ackermann_enabled else "Disabled"))
+                    # if event.key == K_f:
+                    #     # Toggle ackermann controller
+                    #     self._ackermann_enabled = not self._ackermann_enabled
+                    #     world.hud.show_ackermann_info(self._ackermann_enabled)
+                    #     world.hud.notification("Ackermann Controller %s" %
+                    #                            ("Enabled" if self._ackermann_enabled else "Disabled"))
                     if event.key == K_q:
                         ###
                         if True:#not self._ackermann_enabled:
@@ -1032,10 +1030,10 @@ class KeyboardControl(object):
                     self._control = world.player.get_control()
                     # Update hud with the newest ackermann control
                     world.hud.update_ackermann_control(self._ackermann_control)
-
-            elif isinstance(self._control, carla.WalkerControl):
-                self._parse_walker_keys(pygame.key.get_pressed(), clock.get_time(), world)
-                world.player.apply_control(self._control)
+# de sters
+            # elif isinstance(self._control, carla.WalkerControl):
+            #     self._parse_walker_keys(pygame.key.get_pressed(), clock.get_time(), world)
+            #     world.player.apply_control(self._control)
 
     def _parse_vehicle_keys(self, keys, milliseconds):
         
@@ -1097,22 +1095,22 @@ class KeyboardControl(object):
             
         else:
             self._ackermann_control.steer = round(self._steer_cache, 1)
-
-    def _parse_walker_keys(self, keys, milliseconds, world):
-        self._control.speed = 0.0
-        if keys[K_DOWN] or keys[K_s]:
-            self._control.speed = 0.0
-        if keys[K_LEFT] or keys[K_a]:
-            self._control.speed = .01
-            self._rotation.yaw -= 0.08 * milliseconds
-        if keys[K_RIGHT] or keys[K_d]:
-            self._control.speed = .01
-            self._rotation.yaw += 0.08 * milliseconds
-        if keys[K_UP] or keys[K_w]:
-            self._control.speed = world.player_max_speed_fast if pygame.key.get_mods() & KMOD_SHIFT else world.player_max_speed
-        self._control.jump = keys[K_SPACE]
-        self._rotation.yaw = round(self._rotation.yaw, 1)
-        self._control.direction = self._rotation.get_forward_vector()
+# de sters
+    # def _parse_walker_keys(self, keys, milliseconds, world):
+    #     self._control.speed = 0.0
+    #     if keys[K_DOWN] or keys[K_s]:
+    #         self._control.speed = 0.0
+    #     if keys[K_LEFT] or keys[K_a]:
+    #         self._control.speed = .01
+    #         self._rotation.yaw -= 0.08 * milliseconds
+    #     if keys[K_RIGHT] or keys[K_d]:
+    #         self._control.speed = .01
+    #         self._rotation.yaw += 0.08 * milliseconds
+    #     if keys[K_UP] or keys[K_w]:
+    #         self._control.speed = world.player_max_speed_fast if pygame.key.get_mods() & KMOD_SHIFT else world.player_max_speed
+    #     self._control.jump = keys[K_SPACE]
+    #     self._rotation.yaw = round(self._rotation.yaw, 1)
+    #     self._control.direction = self._rotation.get_forward_vector()
         
     def simulator_tick(self):
         self.can_simulator.tick()
@@ -1147,7 +1145,7 @@ class HUD(object):
         self._info_text = []
         self._server_clock = pygame.time.Clock()
 
-        self._show_ackermann_info = False
+        # self._show_ackermann_info = False
         ###
         # self._ackermann_control = carla.VehicleAckermannControl()
         
@@ -1195,7 +1193,8 @@ class HUD(object):
             'GNSS:% 24s' % ('(% 2.6f, % 3.6f)' % (world.gnss_sensor.lat, world.gnss_sensor.lon)),
             'Height:  % 18.0f m' % t.location.z,
             '']
-        if isinstance(c, carla.VehicleControl):
+# de sters
+        if True:# isinstance(c, carla.VehicleControl):
             self._info_text += [
                 ('Throttle:', c.throttle, 0.0, 1.0),
                 ('Steer:', c.steer, -1.0, 1.0),
@@ -1232,8 +1231,8 @@ class HUD(object):
                 vehicle_type = get_actor_display_name(vehicle, truncate=22)
                 self._info_text.append('% 4dm %s' % (d, vehicle_type))
 
-    def show_ackermann_info(self, enabled):
-        self._show_ackermann_info = enabled
+    # def show_ackermann_info(self, enabled):
+    #     self._show_ackermann_info = enabled
     ###
     # def update_ackermann_control(self, ackermann_control):
     #     self._ackermann_control = ackermann_control
