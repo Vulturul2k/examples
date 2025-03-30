@@ -17,31 +17,37 @@ class CanJsonProcessor(QWidget):
         self.all_packets = []
 
     def initUI(self):
-        self.setWindowTitle('CAN JSON Processor')
+        self.setWindowTitle('GUI FOR CARLA')
         self.setGeometry(100, 100, 900, 400)  
 
-        self.label = QLabel('Introdu JSON-ul CAN:', self)
-        self.label.setFont(QFont('Arial', 12))
+        # self.label = QLabel('Introdu JSON-ul CAN:', self)
+        # self.label.setFont(QFont('Arial', 12))
 
         self.json_input = QTextEdit(self)
         self.json_input.setFont(QFont('Arial', 10))
         self.json_input.setPlaceholderText("Introdu JSON-ul aici... (poate fi si neformatat)")
+        self.json_input.setStyleSheet("background-color: #f0f0f0; border: 1px solid #ccc; padding: 5px;")
+        self.json_input.setAcceptRichText(False)
+        
 
         self.process_button = QPushButton('Proceseaza JSON', self)
         self.process_button.setFont(QFont('Arial', 12))
         self.process_button.clicked.connect(self.process_json)
 
-        self.test_button = QPushButton('TEST', self)
+        self.test_button = QPushButton('Tabel report/command', self)
         self.test_button.setFont(QFont('Arial', 12))
         self.test_button.clicked.connect(self.testjson)
         
-        self.show_table_button = QPushButton('Afișează tabelul', self)
+        self.show_table_button = QPushButton('Afișează tabelul de la Simulator', self)
         self.show_table_button.setFont(QFont('Arial', 12))
         self.show_table_button.clicked.connect(self.toggle_table)
 
         self.search_box = QLineEdit(self)
         self.search_box.setPlaceholderText("Caută în tabel...")
         self.search_box.textChanged.connect(self.filter_table)
+
+
+        self.label_input = QLabel('📥 Pachete CAN Primite (INPUT)', self)
 
         self.table = QTableWidget()
         self.table.setColumnCount(10) 
@@ -61,7 +67,8 @@ class CanJsonProcessor(QWidget):
         self.table.setColumnWidth(7, 80)   # Data Size
         self.table.setColumnWidth(8, 100)  # Carla Var
 
-        	
+        self.label_simulator = QLabel('🚗 Pachete CAN Procesate (SIMULATOR)', self)
+
         self.sim_table_command = QTableWidget()
         self.sim_table_command.setColumnCount(10)  
         self.sim_table_command.setHorizontalHeaderLabels([
@@ -101,64 +108,72 @@ class CanJsonProcessor(QWidget):
 
         # Layout principal
         layout = QVBoxLayout()
-        layout.addWidget(self.label)
+        layout.addWidget(QLabel(" JSON Input"))
         layout.addWidget(self.json_input)
-        layout.addWidget(self.process_button)
-        layout.addWidget(self.test_button)
-        layout.addWidget(self.show_table_button)
+        button_layout = QHBoxLayout()
+        button_layout.addWidget(self.show_table_button)
+        button_layout.addWidget(self.process_button)
+        button_layout.addWidget(self.test_button)
 
         # layout.addWidget(self.table)
 
 	
         table_layout = QHBoxLayout()
-        table_layout.addWidget(QLabel("📥 Pachete CAN Primite (INPUT)"))
-        table_layout.addWidget(QLabel("🚗 Pachete CAN Procesate (SIMULATOR)"))
-        # table_view_layout = QHBoxLayout()
-        # table_view_layout.addWidget(self.table)
-        # table_view_layout.addWidget(self.sim_table_command)
-        
-        # table_view_layout.addWidget(self.search_box)
-
-        # # layout.addWidget(self.table)
-        # layout.addLayout(table_layout)
-        # layout.addLayout(table_view_layout)
+        table_layout.addWidget(self.label_input)
+        table_layout.addWidget(self.label_simulator)
         
 
+        sim_table_input_layout = QVBoxLayout()
+        
+        sim_table_input_layout.addWidget(self.table)
+        sim_table_input_layout.addWidget(self.show_table_button)
 
-
-        sim_table_command_layout = QVBoxLayout()
-        sim_table_command_layout.addWidget(self.sim_table_report)
-        sim_table_command_layout.addWidget(self.sim_table_command)  # Adăugăm tabelul
-        sim_table_command_layout.addWidget(self.search_box)  # Bara de căutare sub tabel
-
-
+        sim_table_simulator_layout = QVBoxLayout()
+        sim_table_simulator_layout.addWidget(self.search_box) 
+        sim_table_simulator_layout.addWidget(self.sim_table_report)
+        sim_table_simulator_layout.addWidget(self.sim_table_command)
 
         # Layout principal pentru vizualizarea tabelelor
         table_view_layout = QHBoxLayout()
         table_view_layout.addWidget(self.table)  # Primul tabel (INPUT)
-        table_view_layout.addLayout(sim_table_command_layout)  # Al doilea tabel + search box
+        table_view_layout.addLayout(sim_table_simulator_layout)  # Al doilea tabel + search box
 
         # Adăugăm la layout-ul principal
+        layout.addLayout(button_layout)
         layout.addLayout(table_layout)
         layout.addLayout(table_view_layout)
 
         self.setLayout(layout)
 
     def add_packet_to_table_report(self, packet):
-        # self.all_packets.append(packet)  # Stochează pachetele pentru filtrare
+        can_id = str(packet["can_id"])  # Convertim ID-ul la string pentru consistență
 
-        self.sim_table_report.insertRow(0)
+        # Căutăm dacă ID-ul există deja în tabel
+        row_to_update = -1
+        for row in range(self.sim_table_report.rowCount()):
+            existing_id = self.sim_table_report.item(row, 0)
+            if existing_id and existing_id.text() == can_id:
+                row_to_update = row
+                break  # Găsit -> oprim căutarea
 
-        self.sim_table_report.setItem(0, 0, QTableWidgetItem(str(packet["can_id"])))
-        self.sim_table_report.setItem(0, 1, QTableWidgetItem(str(packet.get("data", "N/A"))))  
-        self.sim_table_report.setItem(0, 2, QTableWidgetItem(packet.get("src", "N/A")))
-        self.sim_table_report.setItem(0, 3, QTableWidgetItem(packet.get("dst", "N/A")))
-        self.sim_table_report.setItem(0, 4, QTableWidgetItem(packet.get("name", "N/A")))
-        self.sim_table_report.setItem(0, 5, QTableWidgetItem(packet.get("level", "N/A")))
-        self.sim_table_report.setItem(0, 6, QTableWidgetItem(packet.get("type", "N/A")))
-        self.sim_table_report.setItem(0, 7, QTableWidgetItem(str(packet.get("period", "N/A"))))
-        self.sim_table_report.setItem(0, 8, QTableWidgetItem(str(packet.get("datasize", "N/A"))))
-        self.sim_table_report.setItem(0, 9, QTableWidgetItem(packet.get("carlaVar", "N/A")))
+        if row_to_update == -1:
+            # ID-ul NU există -> adăugăm un nou rând
+            row_to_update = self.sim_table_report.rowCount()
+            self.sim_table_report.insertRow(row_to_update)
+
+        # Suprascriem datele din rândul găsit/creat
+        self.sim_table_report.setItem(row_to_update, 0, QTableWidgetItem(can_id))
+        self.sim_table_report.setItem(row_to_update, 1, QTableWidgetItem(str(packet.get("data", "N/A"))))  
+        self.sim_table_report.setItem(row_to_update, 2, QTableWidgetItem(packet.get("src", "N/A")))
+        self.sim_table_report.setItem(row_to_update, 3, QTableWidgetItem(packet.get("dst", "N/A")))
+        self.sim_table_report.setItem(row_to_update, 4, QTableWidgetItem(packet.get("name", "N/A")))
+        self.sim_table_report.setItem(row_to_update, 5, QTableWidgetItem(packet.get("level", "N/A")))
+        self.sim_table_report.setItem(row_to_update, 6, QTableWidgetItem(packet.get("type", "N/A")))
+        self.sim_table_report.setItem(row_to_update, 7, QTableWidgetItem(str(packet.get("period", "N/A"))))
+        self.sim_table_report.setItem(row_to_update, 8, QTableWidgetItem(str(packet.get("datasize", "N/A"))))
+        self.sim_table_report.setItem(row_to_update, 9, QTableWidgetItem(packet.get("carlaVar", "N/A")))
+
+        # print(f"Pachet CAN procesat: {packet}")
 
         # print(f"Pachet CAN afisat in raport: {packet}")
 
@@ -225,6 +240,7 @@ class CanJsonProcessor(QWidget):
 
     def toggle_table(self):
         self.table.setVisible(not self.table.isVisible()) 
+        self.label_input.setVisible(not self.label_input.isVisible())
 
     def testjson(self):
         self.sim_table_command.setVisible(not self.sim_table_command.isVisible())

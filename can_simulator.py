@@ -433,6 +433,7 @@ class CANPacket:
 
 # Class to simulate packages transmited during the simulation based on the json file
 import json
+from numpy import interp
 
 class CanSimulator:
     
@@ -528,20 +529,24 @@ class CanSimulator:
     def get_carla_data(self, carlaVar):
         if carlaVar == "kmh":
             v = self.world.player.get_velocity()
-            return round(3.6 * math.sqrt(v.x**2 + v.y**2 + v.z**2), 2)
+            # return round(3.6 * math.sqrt(v.x**2 + v.y**2 + v.z**2), 2)
+            return int(round(3.6 * math.sqrt(v.x**2 + v.y**2 + v.z**2), 2))
         elif carlaVar == "brake":
-            return round(self.world.player.get_control().brake, 2)
+            value = round(self.world.player.get_control().brake, 2)
+            return int(interp(value, [0, 1], [0, 1023]))
         elif carlaVar == "throttle":
-            return round(self.world.player.get_control().throttle, 2)
+            value = round(self.world.player.get_control().throttle, 2)
+            return int(interp(value, [0, 1], [0, 1023]))
         elif carlaVar == "rpm":
             c = self.world.player.get_control()
             p = self.world.player.get_physics_control()
             engine_rpm = p.max_rpm * c.throttle
             if c.gear > 0:
                 engine_rpm *= c.gear
-            return round(engine_rpm, 2)
+            return int(round(engine_rpm, 2))
         elif carlaVar == "steer":
-            return round(self.world.player.get_control().steer, 2)
+            value = round(self.world.player.get_control().steer, 2)
+            return int(interp(value, [-1, 1], [0, 100]))
         elif carlaVar == "tire_angle":
             ###
             return None

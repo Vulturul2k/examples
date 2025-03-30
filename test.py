@@ -1,70 +1,73 @@
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QTableWidget, QTableWidgetItem, QLabel, QTextEdit, QMessageBox, QHBoxLayout, QComboBox,
+import sys
+import json
+from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QVBoxLayout, QWidget, QPushButton, QTableWidget, QTableWidgetItem, QLineEdit
 
-from PyQt5.QtWidgets import QLineEdit
-
-class CanJsonProcessor(QWidget):
+class CANViewer(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.initUI()
-        self.all_packets = []
 
-    def initUI(self):
-        self.setWindowTitle('CAN JSON Processor')
-        self.setGeometry(100, 100, 900, 400)
+        self.setWindowTitle("CAN Message Viewer")
+        self.setGeometry(100, 100, 800, 600)
 
-        # Casetă pentru căutare
-        self.search_box = QLineEdit(self)
-        self.search_box.setPlaceholderText("Caută în tabel...")
-        self.search_box.textChanged.connect(self.filter_table)
+        # Widget principal
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+        layout = QVBoxLayout(self.central_widget)
 
+        # Buton pentru încărcarea unui fișier JSON
+        self.load_button = QPushButton("Load JSON")
+        self.load_button.clicked.connect(self.load_json)
+        layout.addWidget(self.load_button)
+
+        # Câmp de filtrare
+        self.filter_input = QLineEdit()
+        self.filter_input.setPlaceholderText("Filter by Message ID...")
+        self.filter_input.textChanged.connect(self.filter_messages)
+        layout.addWidget(self.filter_input)
+
+        # Tabel pentru afișarea mesajelor
         self.table = QTableWidget()
-        self.table.setColumnCount(6)
-        self.table.setHorizontalHeaderLabels(["ID", "Sursa", "Destinatie", "Nume", "Nivel", "Tip"])
-
-        layout = QVBoxLayout()
-        layout.addWidget(self.search_box)
+        self.table.setColumnCount(3)
+        self.table.setHorizontalHeaderLabels(["Timestamp", "Message ID", "Data"])
         layout.addWidget(self.table)
-        self.setLayout(layout)
 
-    def process_json(self, json_data):
-        self.all_packets.clear()
-        self.table.setRowCount(0)
+        self.messages = []  # Stocăm mesajele încărcate pentru filtrare
 
-        for can_id, details in json_data.items():
-            packet = {
-                "can_id": can_id,
-                "src": details.get("source", "N/A"),
-                "dst": details.get("execution", "N/A"),
-                "name": details.get("name", "N/A"),
-                "level": details.get("level", "N/A"),
-                "type": details.get("type", "N/A"),
-            }
-            self.all_packets.append(packet)
+    def load_json(self):
+        file_name, _ = QFileDialog.getOpenFileName(self, "Open JSON File", "", "JSON Files (*.json)")
+        if not file_name:
+            return
 
-        self.update_table(self.all_packets)
+        try:
+            with open(file_name, "r") as file:
+                data = json.load(file)
+                self.populate_table(data)
+        except Exception as e:
+            print("Error loading JSON:", e)
 
-    def update_table(self, packets):
-        self.table.setRowCount(0)
-        for packet in packets:
-            row_position = self.table.rowCount()
-            self.table.insertRow(row_position)
-            self.table.setItem(row_position, 0, QTableWidgetItem(str(packet["can_id"])))
-            self.table.setItem(row_position, 1, QTableWidgetItem(packet["src"]))
-            self.table.setItem(row_position, 2, QTableWidgetItem(packet["dst"]))
-            self.table.setItem(row_position, 3, QTableWidgetItem(packet["name"]))
-            self.table.setItem(row_position, 4, QTableWidgetItem(packet["level"]))
-            self.table.setItem(row_position, 5, QTableWidgetItem(packet["type"]))
+    def populate_table(self, data):
+        self.table.setRowCount(len(data))
+        self.messages = data  # Salvăm mesajele pentru filtrare
 
-    def filter_table(self):
-        """Filtrează datele după textul introdus în bara de căutare"""
-        search_text = self.search_box.text().lower()
-        filtered_packets = [
-            p for p in self.all_packets if 
-            search_text in p["can_id"].lower() or
-            search_text in p["src"].lower() or
-            search_text in p["dst"].lower() or
-            search_text in p["name"].lower() or
-            search_text in p["level"].lower() or
-            search_text in p["type"].lower()
-        ]
-        self.update_table(filtered_packets)
+        for row, msg in enumerate(data):
+            self.table.setItem(row, 0, QTableWidgetItem(str(msg.get("timestamp", ""))))
+            self.table.setItem(row, 1, QTableWidgetItem(str(msg.get("message_id", ""))))
+            self.table.setItem(row, 2, QTableWidgetItem(str(msg.get("data", ""))))
+
+    def filter_messages(self):
+        filter_text = self.filter_input.text()
+        self.table.setRowCount(0)  # Ștergem rândurile existente
+
+        filtered_messages = [msg for msg in self.messages if filter_text in str(msg.get("message_id", ""))]
+        self.table.setRowCount(len(filtered_messages))
+
+        for row, msg in enumerate(filtered_messages):
+            self.table.setItem(row, 0, QTableWidgetItem(str(msg.get("timestamp", ""))))
+            self.table.setItem(row, 1, QTableWidgetItem(str(msg.get("message_id", ""))))
+            self.table.setItem(row, 2, QTableWidgetItem(str(msg.get("data", ""))))
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    viewer = CANViewer()
+    viewer.show()
+    sys.exit(app.exec_())
