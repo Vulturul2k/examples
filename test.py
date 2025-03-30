@@ -1,73 +1,69 @@
 import sys
-import json
-from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QVBoxLayout, QWidget, QPushButton, QTableWidget, QTableWidgetItem, QLineEdit
+import random
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
-class CANViewer(QMainWindow):
+class CANGraph(QWidget):
     def __init__(self):
         super().__init__()
+        self.initUI()
 
-        self.setWindowTitle("CAN Message Viewer")
-        self.setGeometry(100, 100, 800, 600)
+    def initUI(self):
+        self.setWindowTitle("Grafic Viteză și Frână")
+        self.setGeometry(100, 100, 800, 500)
+        
+        layout = QVBoxLayout()
+        self.setLayout(layout)
 
-        # Widget principal
-        self.central_widget = QWidget()
-        self.setCentralWidget(self.central_widget)
-        layout = QVBoxLayout(self.central_widget)
+        self.figure, self.ax = plt.subplots()
+        self.canvas = FigureCanvas(self.figure)
+        layout.addWidget(self.canvas)
+        
+        self.start_button = QPushButton("Start Grafic", self)
+        self.start_button.clicked.connect(self.start_graph)
+        layout.addWidget(self.start_button)
+        
+        self.data_x = []
+        self.data_speed = []
+        self.data_brake = []
+        self.time_step = 0
+        
+        self.ani = None
 
-        # Buton pentru încărcarea unui fișier JSON
-        self.load_button = QPushButton("Load JSON")
-        self.load_button.clicked.connect(self.load_json)
-        layout.addWidget(self.load_button)
-
-        # Câmp de filtrare
-        self.filter_input = QLineEdit()
-        self.filter_input.setPlaceholderText("Filter by Message ID...")
-        self.filter_input.textChanged.connect(self.filter_messages)
-        layout.addWidget(self.filter_input)
-
-        # Tabel pentru afișarea mesajelor
-        self.table = QTableWidget()
-        self.table.setColumnCount(3)
-        self.table.setHorizontalHeaderLabels(["Timestamp", "Message ID", "Data"])
-        layout.addWidget(self.table)
-
-        self.messages = []  # Stocăm mesajele încărcate pentru filtrare
-
-    def load_json(self):
-        file_name, _ = QFileDialog.getOpenFileName(self, "Open JSON File", "", "JSON Files (*.json)")
-        if not file_name:
-            return
-
-        try:
-            with open(file_name, "r") as file:
-                data = json.load(file)
-                self.populate_table(data)
-        except Exception as e:
-            print("Error loading JSON:", e)
-
-    def populate_table(self, data):
-        self.table.setRowCount(len(data))
-        self.messages = data  # Salvăm mesajele pentru filtrare
-
-        for row, msg in enumerate(data):
-            self.table.setItem(row, 0, QTableWidgetItem(str(msg.get("timestamp", ""))))
-            self.table.setItem(row, 1, QTableWidgetItem(str(msg.get("message_id", ""))))
-            self.table.setItem(row, 2, QTableWidgetItem(str(msg.get("data", ""))))
-
-    def filter_messages(self):
-        filter_text = self.filter_input.text()
-        self.table.setRowCount(0)  # Ștergem rândurile existente
-
-        filtered_messages = [msg for msg in self.messages if filter_text in str(msg.get("message_id", ""))]
-        self.table.setRowCount(len(filtered_messages))
-
-        for row, msg in enumerate(filtered_messages):
-            self.table.setItem(row, 0, QTableWidgetItem(str(msg.get("timestamp", ""))))
-            self.table.setItem(row, 1, QTableWidgetItem(str(msg.get("message_id", ""))))
-            self.table.setItem(row, 2, QTableWidgetItem(str(msg.get("data", ""))))
+    def update_graph(self, frame):
+        self.time_step += 1
+        self.data_x.append(self.time_step)
+        
+        # Simulăm date CAN pentru test
+        speed_value = random.randint(0, 120)  # Viteza între 0 și 120 km/h
+        brake_value = random.randint(0, 100)  # Frână între 0 și 100%
+        
+        self.data_speed.append(speed_value)
+        self.data_brake.append(brake_value)
+        
+        if len(self.data_x) > 50:  # Limităm la ultimele 50 de valori
+            self.data_x.pop(0)
+            self.data_speed.pop(0)
+            self.data_brake.pop(0)
+        
+        self.ax.clear()
+        self.ax.plot(self.data_x, self.data_speed, label="Viteză (km/h)", color='blue')
+        self.ax.plot(self.data_x, self.data_brake, label="Frână (%)", color='red')
+        
+        self.ax.set_xlabel("Timp")
+        self.ax.set_ylabel("Valoare")
+        self.ax.set_title("Grafic Viteză și Frână")
+        self.ax.legend()
+        self.canvas.draw()
+        
+    def start_graph(self):
+        if self.ani is None:
+            self.ani = animation.FuncAnimation(self.figure, self.update_graph, interval=500)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    viewer = CANViewer()
-    viewer.show()
+    window = CANGraph()
+    window.show()
     sys.exit(app.exec_())

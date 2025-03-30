@@ -255,7 +255,7 @@ class World(object):
         # blueprint = random.choice(blueprint_list)
         # blueprint.set_attribute('role_name', self.actor_role_name)
         ###
-        blueprint = random.choice(self.world.get_blueprint_library().filter(self._actor_filter))
+        blueprint = self.world.get_blueprint_library().filter(self._actor_filter)[0]
         if blueprint.has_attribute('terramechanics'):
             blueprint.set_attribute('terramechanics', 'true')
         if blueprint.has_attribute('color'):
@@ -702,24 +702,15 @@ class KeyboardControl(object):
         self._ackermann_enabled = False
         self._ackermann_reverse = 1
         if isinstance(world.player, carla.Vehicle):
-            # self.can_simulator = CanSimulator(world, 'CAN_ID.json', self)
-
             self.window = CanJsonProcessor()
             self.can_simulator = CanSimulator(world, 'CAN_ID.json', self, gui_processor=self.window)
             self.window.show()
-
-            #idk
             self.guiEvent = False
             self._control = carla.VehicleControl()
             ###
-            # self._ackermann_control = carla.VehicleAckermannControl()
             self._lights = carla.VehicleLightState.NONE
             world.player.set_autopilot(self._autopilot_enabled)
             world.player.set_light_state(self._lights)
-        elif isinstance(world.player, carla.Walker):
-            self._control = carla.WalkerControl()
-            self._autopilot_enabled = False
-            self._rotation = world.player.get_transform().rotation
         else:
             raise NotImplementedError("Actor type not supported")
         self._steer_cache = 0.0
@@ -846,20 +837,9 @@ class KeyboardControl(object):
                         world.recording_start += 1
                     world.hud.notification("Recording start time is %d" % (world.recording_start))
                 if isinstance(self._control, carla.VehicleControl):
-                    # if event.key == K_f:
-                    #     # Toggle ackermann controller
-                    #     self._ackermann_enabled = not self._ackermann_enabled
-                    #     world.hud.show_ackermann_info(self._ackermann_enabled)
-                    #     world.hud.notification("Ackermann Controller %s" %
-                    #                            ("Enabled" if self._ackermann_enabled else "Disabled"))
                     if event.key == K_q:
                         ###
-                        if True:#not self._ackermann_enabled:
-                            self._control.gear = 1 if self._control.reverse else -1
-                        else:
-                            self._ackermann_reverse *= -1
-                            # Reset ackermann control
-                            self._ackermann_control = carla.VehicleAckermannControl()
+                        self._control.gear = 1 if self._control.reverse else -1
                     elif event.key == K_m:
                         self._control.manual_gear_shift = not self._control.manual_gear_shift
                         self._control.gear = world.player.get_control().gear
@@ -1021,19 +1001,7 @@ class KeyboardControl(object):
                     self._lights = current_lights
                     world.player.set_light_state(carla.VehicleLightState(self._lights))
                 # Apply control
-                ###
-                if True:# not self._ackermann_enabled:
-                    world.player.apply_control(self._control)
-                else:
-                    world.player.apply_ackermann_control(self._ackermann_control)
-                    # Update control to the last one applied by the ackermann controller.
-                    self._control = world.player.get_control()
-                    # Update hud with the newest ackermann control
-                    world.hud.update_ackermann_control(self._ackermann_control)
-# de sters
-            # elif isinstance(self._control, carla.WalkerControl):
-            #     self._parse_walker_keys(pygame.key.get_pressed(), clock.get_time(), world)
-            #     world.player.apply_control(self._control)
+                world.player.apply_control(self._control)
 
     def _parse_vehicle_keys(self, keys, milliseconds):
         
@@ -1046,21 +1014,14 @@ class KeyboardControl(object):
         if keys[K_UP] or keys[K_w]:
             self.can_simulator.add_command_packet("47")
             ###
-            if True:# not self._ackermann_enabled:
-                self._control.throttle = min(self._control.throttle + 0.1, 1.00)
-            else:
-                self._ackermann_control.speed += round(milliseconds * 0.005, 2) * self._ackermann_reverse
+            self._control.throttle = min(self._control.throttle + 0.1, 1.00)
         else:
             if not self._ackermann_enabled:
                 self._control.throttle = 0.0
         if keys[K_DOWN] or keys[K_s]:
             ###
-            if True: #not self._ackermann_enabled:
-                self._control.brake = min(self._control.brake + 0.2, 1)
-                self.can_simulator.add_command_packet("26")
-            else:
-                self._ackermann_control.speed -= min(abs(self._ackermann_control.speed), round(milliseconds * 0.005, 2)) * self._ackermann_reverse
-                self._ackermann_control.speed = max(0, abs(self._ackermann_control.speed)) * self._ackermann_reverse
+            self._control.brake = min(self._control.brake + 0.2, 1)
+            self.can_simulator.add_command_packet("26")
         else:
             if not self._ackermann_enabled:
                 self._control.brake = 0
@@ -1081,37 +1042,17 @@ class KeyboardControl(object):
         else:
             self._steer_cache = 0.0
         self._steer_cache = min(0.7, max(-0.7, self._steer_cache))
-        ###
-        if True:# not self._ackermann_enabled:
-            self._control.steer = round(self._steer_cache, 1)
-            # Send a CAN packet only if we started pressing the handbrake or stopped pressing it
-            if keys[K_SPACE] and not self._control.hand_brake:
-                self.can_simulator.set_hand_brake(True)
-                self.can_simulator.add_command_packet("457")
-            elif not keys[K_SPACE] and self._control.hand_brake:
-                self.can_simulator.set_hand_brake(False)
-                self.can_simulator.add_command_packet("457")
-            self._control.hand_brake = keys[K_SPACE]
+
+        self._control.steer = round(self._steer_cache, 1)
+        # Send a CAN packet only if we started pressing the handbrake or stopped pressing it
+        if keys[K_SPACE] and not self._control.hand_brake:
+            self.can_simulator.set_hand_brake(True)
+            self.can_simulator.add_command_packet("457")
+        elif not keys[K_SPACE] and self._control.hand_brake:
+            self.can_simulator.set_hand_brake(False)
+            self.can_simulator.add_command_packet("457")
+        self._control.hand_brake = keys[K_SPACE]
             
-        else:
-            self._ackermann_control.steer = round(self._steer_cache, 1)
-# de sters
-    # def _parse_walker_keys(self, keys, milliseconds, world):
-    #     self._control.speed = 0.0
-    #     if keys[K_DOWN] or keys[K_s]:
-    #         self._control.speed = 0.0
-    #     if keys[K_LEFT] or keys[K_a]:
-    #         self._control.speed = .01
-    #         self._rotation.yaw -= 0.08 * milliseconds
-    #     if keys[K_RIGHT] or keys[K_d]:
-    #         self._control.speed = .01
-    #         self._rotation.yaw += 0.08 * milliseconds
-    #     if keys[K_UP] or keys[K_w]:
-    #         self._control.speed = world.player_max_speed_fast if pygame.key.get_mods() & KMOD_SHIFT else world.player_max_speed
-    #     self._control.jump = keys[K_SPACE]
-    #     self._rotation.yaw = round(self._rotation.yaw, 1)
-    #     self._control.direction = self._rotation.get_forward_vector()
-        
     def simulator_tick(self):
         self.can_simulator.tick()
 
@@ -1144,10 +1085,6 @@ class HUD(object):
         self._show_info = True
         self._info_text = []
         self._server_clock = pygame.time.Clock()
-
-        # self._show_ackermann_info = False
-        ###
-        # self._ackermann_control = carla.VehicleAckermannControl()
         
     def set_controller(self, c):
         HUD.controller = c
@@ -1193,28 +1130,15 @@ class HUD(object):
             'GNSS:% 24s' % ('(% 2.6f, % 3.6f)' % (world.gnss_sensor.lat, world.gnss_sensor.lon)),
             'Height:  % 18.0f m' % t.location.z,
             '']
-# de sters
-        if True:# isinstance(c, carla.VehicleControl):
-            self._info_text += [
-                ('Throttle:', c.throttle, 0.0, 1.0),
-                ('Steer:', c.steer, -1.0, 1.0),
-                ('Brake:', c.brake, 0.0, 1.0),
-                ('Ignition:', HUD.controller.engine_on),
-                ('Reverse:', c.reverse),
-                ('Hand brake:', c.hand_brake),
-                ('Manual:', c.manual_gear_shift),
-                'Gear:        %s' % {-1: 'R', 0: 'N'}.get(c.gear, c.gear)]
-            ###
-            # if self._show_ackermann_info:
-            #     self._info_text += [
-            #         '',
-            #         'Ackermann Controller:',
-            #         '  Target speed: % 8.0f km/h' % (3.6*self._ackermann_control.speed),
-            #     ]
-        elif isinstance(c, carla.WalkerControl):
-            self._info_text += [
-                ('Speed:', c.speed, 0.0, 5.556),
-                ('Jump:', c.jump)]
+        self._info_text += [
+            ('Throttle:', c.throttle, 0.0, 1.0),
+            ('Steer:', c.steer, -1.0, 1.0),
+            ('Brake:', c.brake, 0.0, 1.0),
+            ('Ignition:', HUD.controller.engine_on),
+            ('Reverse:', c.reverse),
+            ('Hand brake:', c.hand_brake),
+            ('Manual:', c.manual_gear_shift),
+            'Gear:        %s' % {-1: 'R', 0: 'N'}.get(c.gear, c.gear)]
         self._info_text += [
             '',
             'Collision:',
@@ -1230,13 +1154,6 @@ class HUD(object):
                     break
                 vehicle_type = get_actor_display_name(vehicle, truncate=22)
                 self._info_text.append('% 4dm %s' % (d, vehicle_type))
-
-    # def show_ackermann_info(self, enabled):
-    #     self._show_ackermann_info = enabled
-    ###
-    # def update_ackermann_control(self, ackermann_control):
-    #     self._ackermann_control = ackermann_control
-
     def toggle_info(self):
         self._show_info = not self._show_info
 
@@ -1585,54 +1502,6 @@ class CameraManager(object):
                 'lens_circle_falloff': '3.0',
                 'chromatic_aberration_intensity': '0.5',
                 'chromatic_aberration_offset': '0'}]]
-
-# class CameraManager(object):
-#     def __init__(self, parent_actor, hud, gamma_correction):
-#         self.sensor = None
-#         self.surface = None
-#         self._parent = parent_actor
-#         self.hud = hud
-#         self.recording = False
-#         bound_x = 0.5 + self._parent.bounding_box.extent.x
-#         bound_y = 0.5 + self._parent.bounding_box.extent.y
-#         bound_z = 0.5 + self._parent.bounding_box.extent.z
-#         Attachment = carla.AttachmentType
-
-#         if not self._parent.type_id.startswith("walker.pedestrian"):
-#             self._camera_transforms = [
-#                 (carla.Transform(carla.Location(x=-2.0*bound_x, y=+0.0*bound_y, z=2.0*bound_z), carla.Rotation(pitch=8.0)), Attachment.SpringArmGhost),
-#                 (carla.Transform(carla.Location(x=+0.8*bound_x, y=+0.0*bound_y, z=1.3*bound_z)), Attachment.Rigid),
-#                 (carla.Transform(carla.Location(x=+1.9*bound_x, y=+1.0*bound_y, z=1.2*bound_z)), Attachment.SpringArmGhost),
-#                 (carla.Transform(carla.Location(x=-2.8*bound_x, y=+0.0*bound_y, z=4.6*bound_z), carla.Rotation(pitch=6.0)), Attachment.SpringArmGhost),
-#                 (carla.Transform(carla.Location(x=-1.0, y=-1.0*bound_y, z=0.4*bound_z)), Attachment.Rigid)]
-#         else:
-#             self._camera_transforms = [
-#                 (carla.Transform(carla.Location(x=-2.5, z=0.0), carla.Rotation(pitch=-8.0)), Attachment.SpringArmGhost),
-#                 (carla.Transform(carla.Location(x=1.6, z=1.7)), Attachment.Rigid),
-#                 (carla.Transform(carla.Location(x=2.5, y=0.5, z=0.0), carla.Rotation(pitch=-8.0)), Attachment.SpringArmGhost),
-#                 (carla.Transform(carla.Location(x=-4.0, z=2.0), carla.Rotation(pitch=6.0)), Attachment.SpringArmGhost),
-#                 (carla.Transform(carla.Location(x=0, y=-2.5, z=-0.0), carla.Rotation(yaw=90.0)), Attachment.Rigid)]
-
-#         self.transform_index = 1
-#         self.sensors = [
-#             ['sensor.camera.rgb', cc.Raw, 'Camera RGB', {}],
-#             ['sensor.camera.depth', cc.Raw, 'Camera Depth (Raw)', {}],
-#             ['sensor.camera.depth', cc.Depth, 'Camera Depth (Gray Scale)', {}],
-#             ['sensor.camera.depth', cc.LogarithmicDepth, 'Camera Depth (Logarithmic Gray Scale)', {}],
-#             ['sensor.camera.semantic_segmentation', cc.Raw, 'Camera Semantic Segmentation (Raw)', {}],
-#             ['sensor.camera.semantic_segmentation', cc.CityScapesPalette, 'Camera Semantic Segmentation (CityScapes Palette)', {}],
-#             ['sensor.camera.instance_segmentation', cc.CityScapesPalette, 'Camera Instance Segmentation (CityScapes Palette)', {}],
-#             ['sensor.camera.instance_segmentation', cc.Raw, 'Camera Instance Segmentation (Raw)', {}],
-#             ['sensor.lidar.ray_cast', None, 'Lidar (Ray-Cast)', {'range': '50'}],
-#             ['sensor.camera.dvs', cc.Raw, 'Dynamic Vision Sensor', {}],
-#             ['sensor.camera.rgb', cc.Raw, 'Camera RGB Distorted',
-#                 {'lens_circle_multiplier': '3.0',
-#                 'lens_circle_falloff': '3.0',
-#                 'chromatic_aberration_intensity': '0.5',
-#                 'chromatic_aberration_offset': '0'}],
-#             ['sensor.camera.optical_flow', cc.Raw, 'Optical Flow', {}],
-#             ['sensor.camera.normals', cc.Raw, 'Camera Normals', {}],
-#         ]
         world = self._parent.get_world()
         bp_library = world.get_blueprint_library()
         for item in self.sensors:

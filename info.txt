@@ -1,0 +1,6 @@
+cand pun mai multe pachete la fel, doar ultimul este luat in considerare, oricate as pune
+Cand dau comanda de virare foarte mare, se opreste la maxim
+daca le dau pe toate de acolo , merg
+daca frana nu e 0, masina nu pleaca
+daca primeste un report, nu se intampla nimic
+daca nu lipseste o virgula primeste seg fault si masina ramane pe mapa.

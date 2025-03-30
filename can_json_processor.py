@@ -6,6 +6,8 @@ from PyQt5.QtWidgets import (
     QLabel, QTextEdit, QMessageBox, QLineEdit
 )
 from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QColor
+from PyQt5.QtCore import Qt
 
 
 class CanJsonProcessor(QWidget):
@@ -157,7 +159,6 @@ class CanJsonProcessor(QWidget):
                 break  # Găsit -> oprim căutarea
 
         if row_to_update == -1:
-            # ID-ul NU există -> adăugăm un nou rând
             row_to_update = self.sim_table_report.rowCount()
             self.sim_table_report.insertRow(row_to_update)
 
@@ -187,7 +188,6 @@ class CanJsonProcessor(QWidget):
         # self.update_table(self.all_packets)
 
         self.sim_table_command.insertRow(0)
-
         self.sim_table_command.setItem(0, 0, QTableWidgetItem(str(packet["can_id"])))
         self.sim_table_command.setItem(0, 1, QTableWidgetItem(str(packet.get("data", "N/A"))))  
         self.sim_table_command.setItem(0, 2, QTableWidgetItem(packet.get("src", "N/A")))
@@ -198,11 +198,12 @@ class CanJsonProcessor(QWidget):
         self.sim_table_command.setItem(0, 7, QTableWidgetItem(str(packet.get("period", "N/A"))))
         self.sim_table_command.setItem(0, 8, QTableWidgetItem(str(packet.get("datasize", "N/A"))))
         self.sim_table_command.setItem(0, 9, QTableWidgetItem(packet.get("carlaVar", "N/A")))
-
+        if packet["can_id"] == "440":
+            for col in range(self.sim_table_command.columnCount()):
+                self.sim_table_command.item(0, col).setBackground(Qt.red)
         print(f"Pachet CAN afisat in tabel: {packet}")
 
     def update_table(self, packets):
-        """Actualizează tabelul cu pachetele furnizate."""
         self.sim_table_command.setRowCount(0)
 
         for packet in packets:
@@ -221,7 +222,6 @@ class CanJsonProcessor(QWidget):
             self.sim_table_command.setItem(row_position, 9, QTableWidgetItem(packet["carlaVar"]))
 
     def filter_table(self):
-        """Filtrează datele în funcție de textul introdus în bara de căutare."""
         search_text = self.search_box.text().lower()
         filtered_packets = [
             p for p in self.all_packets if 
@@ -278,7 +278,6 @@ class CanJsonProcessor(QWidget):
             self.table.setItem(0, 9, QTableWidgetItem(details.get("carlaVar", "N/A")))  # Carla Var
 
     def add_command_packet(self, can_id, details):
-
         if details["level"] == "command":
             data_value = details.get("data", None)
             packet = {
