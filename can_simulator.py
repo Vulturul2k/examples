@@ -293,7 +293,7 @@ class World(object):
             self.modify_vehicle_physics(self.player)
         # Set up the sensors.
         self.collision_sensor = CollisionSensor(self.player, self.hud)
-        self.lane_invasion_sensor = LaneInvasionSensor(self.player, self.hud)
+        # self.lane_invasion_sensor = LaneInvasionSensor(self.player, self.hud)
         self.gnss_sensor = GnssSensor(self.player)
         self.imu_sensor = IMUSensor(self.player)
         self.camera_manager = CameraManager(self.player, self.hud, self._gamma)
@@ -363,7 +363,7 @@ class World(object):
         sensors = [
             self.camera_manager.sensor,
             self.collision_sensor.sensor,
-            self.lane_invasion_sensor.sensor,
+            # self.lane_invasion_sensor.sensor,
             self.gnss_sensor.sensor,
             self.imu_sensor.sensor]
         for sensor in sensors:
@@ -468,11 +468,7 @@ class CanSimulator:
                 self.gui_processor.add_packet_to_table_report(packet.to_dict())
             else:
                 self.gui_processor.add_packet_to_table(packet.to_dict())
-        
-        
-        
-        
-        
+
         try:
             data_int = int(packet.data)
             data_bytes = data_int.to_bytes(packet.datasize, byteorder='big', signed=True)
@@ -601,6 +597,9 @@ class CanSimulator:
             return self.world.player.get_control().manual_gear_shift
         elif carlaVar == "radar":
             return None
+            radar_sensor = RadarSensor(self.world.player)
+            detected_objects = radar_sensor._Radar_callback(weakref.ref(radar_sensor), radar_sensor.sensor)
+            return detected_objects
         elif carlaVar == "lidar":
             return None
         else:
@@ -633,11 +632,6 @@ class CanSimulator:
     
     def tick(self):
         """Process queued command packets and update report packets"""
-        # if self.gui_processor.input_packets:
-        #     for can_id in self.gui_processor.input_packets:
-        #         self.add_command_packet(can_id)
-        #     self.gui_processor.input_packets = []
-        # Process report packets
         for can_id, packet in self.report_packets.items():
             packet.tick()
             if packet.period != None and packet.current_period <= 0:
@@ -680,10 +674,10 @@ class CanSimulator:
                 )
                 self.command_packets.append(packet)
             
-            else:
-                print(f"CAN ID {can_id} is not a command packet.")
-        else:
-            print(f"CAN ID {can_id} not found in CAN data.")
+            # else:
+                # print(f"CAN ID {can_id} is not a command packet.")
+        # else:
+            # print(f"CAN ID {can_id} not found in CAN data.")
         
 
 
@@ -840,6 +834,7 @@ class KeyboardControl(object):
                     if event.key == K_q:
                         ###
                         self._control.gear = 1 if self._control.reverse else -1
+                        self.can_simulator.add_command_packet("109")
                     elif event.key == K_m:
                         self._control.manual_gear_shift = not self._control.manual_gear_shift
                         self._control.gear = world.player.get_control().gear
@@ -1292,6 +1287,7 @@ class CollisionSensor(object):
         if not self:
             return
         actor_type = get_actor_display_name(event.other_actor)
+        print("#####################")
         self.hud.notification('Collision with %r' % actor_type)
         impulse = event.normal_impulse
         intensity = math.sqrt(impulse.x**2 + impulse.y**2 + impulse.z**2)
@@ -1305,30 +1301,30 @@ class CollisionSensor(object):
 # ==============================================================================
 
 
-class LaneInvasionSensor(object):
-    def __init__(self, parent_actor, hud):
-        self.sensor = None
+# class LaneInvasionSensor(object):
+#     def __init__(self, parent_actor, hud):
+#         self.sensor = None
 
-        # If the spawn object is not a vehicle, we cannot use the Lane Invasion Sensor
-        if parent_actor.type_id.startswith("vehicle."):
-            self._parent = parent_actor
-            self.hud = hud
-            world = self._parent.get_world()
-            bp = world.get_blueprint_library().find('sensor.other.lane_invasion')
-            self.sensor = world.spawn_actor(bp, carla.Transform(), attach_to=self._parent)
-            # We need to pass the lambda a weak reference to self to avoid circular
-            # reference.
-            weak_self = weakref.ref(self)
-            self.sensor.listen(lambda event: LaneInvasionSensor._on_invasion(weak_self, event))
+#         # If the spawn object is not a vehicle, we cannot use the Lane Invasion Sensor
+#         if parent_actor.type_id.startswith("vehicle."):
+#             self._parent = parent_actor
+#             self.hud = hud
+#             world = self._parent.get_world()
+#             bp = world.get_blueprint_library().find('sensor.other.lane_invasion')
+#             self.sensor = world.spawn_actor(bp, carla.Transform(), attach_to=self._parent)
+#             # We need to pass the lambda a weak reference to self to avoid circular
+#             # reference.
+#             weak_self = weakref.ref(self)
+#             self.sensor.listen(lambda event: LaneInvasionSensor._on_invasion(weak_self, event))
 
-    @staticmethod
-    def _on_invasion(weak_self, event):
-        self = weak_self()
-        if not self:
-            return
-        lane_types = set(x.type for x in event.crossed_lane_markings)
-        text = ['%r' % str(x).split()[-1] for x in lane_types]
-        self.hud.notification('Crossed line %s' % ' and '.join(text))
+#     @staticmethod
+#     def _on_invasion(weak_self, event):
+#         self = weak_self()
+#         if not self:
+#             return
+#         lane_types = set(x.type for x in event.crossed_lane_markings)
+#         text = ['%r' % str(x).split()[-1] for x in lane_types]
+#         self.hud.notification('Crossed line %s' % ' and '.join(text))
 
 
 # ==============================================================================
@@ -1436,7 +1432,8 @@ class RadarSensor(object):
         # To get a numpy [[vel, altitude, azimuth, depth],...[,,,]]:
         # points = np.frombuffer(radar_data.raw_data, dtype=np.dtype('f4'))
         # points = np.reshape(points, (len(radar_data), 4))
-
+        
+        # detected_objects = [] 
         current_rot = radar_data.transform.rotation
         for detect in radar_data:
             azi = math.degrees(detect.azimuth)
@@ -1464,6 +1461,16 @@ class RadarSensor(object):
                 life_time=0.06,
                 persistent_lines=False,
                 color=carla.Color(r, g, b))
+
+        #     obj_data = {
+        #         "distance": detect.depth,
+        #         "velocity": detect.velocity,
+        #         "azimuth": azi,
+        #         "altitude": alt
+        #     }
+        #     detected_objects.append(obj_data)
+        # print("Detected objects: ", detected_objects[0])
+        # return detected_objects
 
 # ==============================================================================
 # -- CameraManager -------------------------------------------------------------

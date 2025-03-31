@@ -201,7 +201,7 @@ class CanJsonProcessor(QWidget):
         if packet["can_id"] == "440":
             for col in range(self.sim_table_command.columnCount()):
                 self.sim_table_command.item(0, col).setBackground(Qt.red)
-        print(f"Pachet CAN afisat in tabel: {packet}")
+        # print(f"Pachet CAN afisat in tabel: {packet}")
 
     def update_table(self, packets):
         self.sim_table_command.setRowCount(0)
@@ -295,9 +295,9 @@ class CanJsonProcessor(QWidget):
                 "data": data_value  
             }
             self.input_packets.append(packet)
-            print(f"Command packet added: {packet}")
-        else:
-            print(f"CAN ID {can_id} is not a command packet.")
+            # print(f"Command packet added: {packet}")
+        # else:
+            # print(f"CAN ID {can_id} is not a command packet.")
 
     def fix_json(self, text):
 
